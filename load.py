@@ -5,7 +5,7 @@ import habitat_sim
 from habitat_sim.utils.common import d3_40_colors_rgb
 import cv2
 
-#gitflag
+#gitflag1
 # This is the scene we are going to load.
 # support a variety of mesh formats, such as .glb, .gltf, .obj, .ply
 ### put your scene path ###
