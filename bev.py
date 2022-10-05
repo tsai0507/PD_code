@@ -7,7 +7,7 @@ points = []
 
 class Projection(object):
 
-    def __init__(self, image_path, points):  #self.data_member :image,height,width,channels
+    def __init__(self, image_path, points):  #self.data_member :image,height,width,channelssss
         """
             :param points: Selected pixels on top view(BEV) image
         """
