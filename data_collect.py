@@ -63,20 +63,6 @@ def make_simple_cfg(settings):
     ]
     rgb_sensor_spec.sensor_subtype = habitat_sim.SensorSubType.PINHOLE
     
-    # a BEV_RGB visual sensor, to the agent
-    bev_rgb_sensor_spec = habitat_sim.CameraSensorSpec()
-    bev_rgb_sensor_spec.uuid = "bev_color_sensor"
-    bev_rgb_sensor_spec.sensor_type = habitat_sim.SensorType.COLOR
-    bev_rgb_sensor_spec.resolution = [settings["height"], settings["width"]]
-    bev_rgb_sensor_spec.position = [0.0, settings["sensor_height"], -1.5]
-    bev_rgb_sensor_spec.orientation = [
-        -np.pi/2,
-        0.0,
-        0.0,
-    ]
-    bev_rgb_sensor_spec.sensor_subtype = habitat_sim.SensorSubType.PINHOLE
-    
-
     #depth snesor
     depth_sensor_spec = habitat_sim.CameraSensorSpec()
     depth_sensor_spec.uuid = "depth_sensor"
@@ -90,33 +76,9 @@ def make_simple_cfg(settings):
     ]
     depth_sensor_spec.sensor_subtype = habitat_sim.SensorSubType.PINHOLE
 
-    #depth snesor bev
-    depth_sensor_bev = habitat_sim.CameraSensorSpec()
-    depth_sensor_bev.uuid = "depth_sensor_bev"
-    depth_sensor_bev.sensor_type = habitat_sim.SensorType.DEPTH
-    depth_sensor_bev.resolution = [settings["height"], settings["width"]]
-    depth_sensor_bev.position = [0.0, settings["sensor_height"], -1.5]
-    depth_sensor_bev.orientation = [
-        -np.pi/2,
-        0.0,
-        0.0,
-    ]
-    depth_sensor_bev.sensor_subtype = habitat_sim.SensorSubType.PINHOLE
 
-    #semantic snesor
-    semantic_sensor_spec = habitat_sim.CameraSensorSpec()
-    semantic_sensor_spec.uuid = "semantic_sensor"
-    semantic_sensor_spec.sensor_type = habitat_sim.SensorType.SEMANTIC
-    semantic_sensor_spec.resolution = [settings["height"], settings["width"]]
-    semantic_sensor_spec.position = [0.0, settings["sensor_height"], 0.0]
-    semantic_sensor_spec.orientation = [
-        settings["sensor_pitch"],
-        0.0,
-        0.0,
-    ]
-    semantic_sensor_spec.sensor_subtype = habitat_sim.SensorSubType.PINHOLE
 
-    agent_cfg.sensor_specifications = [rgb_sensor_spec,bev_rgb_sensor_spec, depth_sensor_spec,depth_sensor_bev, semantic_sensor_spec]
+    agent_cfg.sensor_specifications = [rgb_sensor_spec, depth_sensor_spec]
 
     return habitat_sim.Configuration(sim_cfg, [agent_cfg])
 
@@ -142,8 +104,7 @@ print("Discrete action space: ", action_names)
 FORWARD_KEY="w"
 LEFT_KEY="a"
 RIGHT_KEY="d"
-SAVE_FRONT="z"
-SAVE_BEV="x"
+SAVE_IMG="z"
 FINISH="f"
 print("#############################")
 print("use keyboard to control the agent")
@@ -160,61 +121,21 @@ def navigateAndSee(action=""):
         #print("action: ", action)
 
         cv2.imshow("RGB", transform_rgb_bgr(observations["color_sensor"]))
-        # cv2.imshow("BEV_RGB", transform_rgb_bgr(observations["bev_color_sensor"]))
-        cv2.imshow("depth_RGB", transform_depth(observations["depth_sensor_bev"]))
         # cv2.imshow("depth", transform_depth(observations["depth_sensor"]))
-        # cv2.imshow("semantic", transform_semantic(observations["semantic_sensor"]))
         agent_state = agent.get_state()
         sensor_state = agent_state.sensor_states['color_sensor']
         print("camera pose: x y z rw rx ry rz")
         print(sensor_state.position[0],sensor_state.position[1],sensor_state.position[2],  sensor_state.rotation.w, sensor_state.rotation.x, sensor_state.rotation.y, sensor_state.rotation.z)
-        return transform_rgb_bgr(observations["color_sensor"]) ,transform_rgb_bgr(observations["bev_color_sensor"]) ,transform_depth(observations["depth_sensor"]),transform_depth(observations["depth_sensor_bev"])
+        return transform_rgb_bgr(observations["color_sensor"]) ,transform_depth(observations["depth_sensor"])
 
 
-# def save(save_img):
-#     cv2.imwrite('front_view_path.png',save_img[0])
-#     cv2.imwrite('top_view_path.png',save_img[1])
-#     cv2.imwrite('front_view_depth.png',save_img[2])
-#     cv2.imwrite('bev_view_depth.png',save_img[3])
 
-def save(save_img,flag):
-    
-    if(flag==1):
-        cv2.imwrite('img1.png',save_img[0])
-        cv2.imwrite('img1_depth.png',save_img[2])
-    else:
-        cv2.imwrite('img2.png',save_img[0])
-        cv2.imwrite('img2_depth.png',save_img[2])
+def save(save_img):
+    cv2.imwrite('img1.png',save_img[0])
+    cv2.imwrite('img1_depth.png',save_img[2])
+
+
 
 
    
 
-if __name__ == "__main__":
-
-    action = "move_forward"
-    save_img=navigateAndSee(action)
-    flag=1
-    while True:
-        keystroke = cv2.waitKey(0) #等待按鍵事件
-        if keystroke == ord(FORWARD_KEY): #ord()取得char得ASCII
-            action = "move_forward"
-            save_img=navigateAndSee(action)
-            print("action: FORWARD")
-        elif keystroke == ord(LEFT_KEY):
-            action = "turn_left"
-            save_img=navigateAndSee(action)
-            print("action: LEFT")
-        elif keystroke == ord(RIGHT_KEY):
-            action = "turn_right"
-            save_img=navigateAndSee(action)
-            print("action: RIGHT")
-        elif keystroke ==ord(SAVE_FRONT):
-            print("action: SAVE_IMG")
-            save(save_img,flag)
-            flag*=-1
-        elif keystroke == ord(FINISH):
-            print("action: FINISH ",flag)
-            break
-        else:
-            print("INVALID KEY")
-            continue

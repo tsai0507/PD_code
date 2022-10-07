@@ -1,13 +1,14 @@
 from re import X
 import cv2
 import numpy as np
+import open3d as o3d
 
 
 points = []
 
 class Projection(object):
 
-    def __init__(self, image_path, points):  #self.data_member :image,height,width,channelssss
+    def __init__(self, image_path, points):  #self.data_member :image,height,width,channels
         """
             :param points: Selected pixels on top view(BEV) image
         """
@@ -28,20 +29,20 @@ class Projection(object):
         ### TODO ###
         f=0.5*512/(np.tan(fov/2)) #caculate focus length
         #turn piexl coordinate to world  cooridnate             
-        z_bev=1
+        z_bev=1.5
         CORBEV=[]
         for no in self.bev_uv:
             CORBEV.append([z_bev*(no[0]-256)/f,
-                                                z_bev*(no[1]-256)/f,
-                                                z_bev,
-                                                1]) #CORBEV 4x4
+                            z_bev*(no[1]-256)/f,
+                            z_bev,
+                            1]) #CORBEV 4x4
 
         #trans bev to front
         rot=np.pi/2
         transform=np.array([[1,0,0,0],
-                                                    [0,np.cos(rot),-np.sin(rot),0],
-                                                    [0,np.sin(rot),np.cos(rot),-1.5],
-                                                    [0,0,0,1]])
+                            [0,np.cos(rot),-np.sin(rot),0],
+                            [0,np.sin(rot),np.cos(rot),-1.5],
+                            [0,0,0,1]])
         cor_bev=[]
         for no in CORBEV:
             cor_bev.append(
