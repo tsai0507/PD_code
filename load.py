@@ -15,7 +15,7 @@ test_scene = "apartment_0/habitat/mesh_semantic.ply"
 sim_settings = {
     "scene": test_scene,  # Scene path
     "default_agent": 0,  # Index of the default agent
-    "sensor_height":1.5 ,  # Height of sensors in meters, relative to the agent1.5 /1:27
+    "sensor_height":0.5 ,  # Height of sensors in meters, relative to the agent1.5 /1:27
     "width": 512,  # Spatial resolution of the observations
     "height": 512,
     "sensor_pitch": 0,  # sensor pitch (x rotation in rads)(- is down,+is up)
@@ -142,8 +142,7 @@ print("Discrete action space: ", action_names)
 FORWARD_KEY="w"
 LEFT_KEY="a"
 RIGHT_KEY="d"
-SAVE_FRONT="z"
-SAVE_BEV="x"
+# SAVE_RECONSTRUCT="z"
 FINISH="f"
 print("#############################")
 print("use keyboard to control the agent")
@@ -158,12 +157,8 @@ def navigateAndSee(action=""):
     if action in action_names:
         observations = sim.step(action)
         #print("action: ", action)
-
         cv2.imshow("RGB", transform_rgb_bgr(observations["color_sensor"]))
         # cv2.imshow("BEV_RGB", transform_rgb_bgr(observations["bev_color_sensor"]))
-        cv2.imshow("depth_RGB", transform_depth(observations["depth_sensor_bev"]))
-        # cv2.imshow("depth", transform_depth(observations["depth_sensor"]))
-        # cv2.imshow("semantic", transform_semantic(observations["semantic_sensor"]))
         agent_state = agent.get_state()
         sensor_state = agent_state.sensor_states['color_sensor']
         print("camera pose: x y z rw rx ry rz")
@@ -177,44 +172,48 @@ def navigateAndSee(action=""):
 #     cv2.imwrite('front_view_depth.png',save_img[2])
 #     cv2.imwrite('bev_view_depth.png',save_img[3])
 
-def save(save_img,flag):
+
+def save_reconstruct(save_img,count):
+    print(count)
+    cv2.imwrite('./reconstuct_data/'+'rgb_'+str(count)+'.png',save_img[0])
+    cv2.imwrite('./reconstuct_data/'+'img1_depth'+str(count)+'.png',save_img[2])
     
-    if(flag==1):
-        cv2.imwrite('img1.png',save_img[0])
-        cv2.imwrite('img1_depth.png',save_img[2])
+
+  
+count=1
+action = "move_forward"
+save_img=navigateAndSee(action)
+save_reconstruct(save_img,count)
+count=count+1
+while True:
+    keystroke = cv2.waitKey(0) #等待按鍵事件
+    if keystroke == ord(FORWARD_KEY): #ord()取得char得ASCII
+        action = "move_forward"
+        save_img=navigateAndSee(action)
+        save_reconstruct(save_img,count)
+        count=count+1
+        print("action: FORWARD")
+    elif keystroke == ord(LEFT_KEY):
+        action = "turn_left"
+        save_img=navigateAndSee(action)
+        save_reconstruct(save_img,count)
+        count=count+1
+        print("action: LEFT")
+    elif keystroke == ord(RIGHT_KEY):
+        action = "turn_right"
+        save_img=navigateAndSee(action)
+        save_reconstruct(save_img,count)
+        count=count+1
+        print("action: RIGHT")
+    # elif keystroke ==ord(SAVE_FRONT):
+    #     print("action: SAVE_IMG")
+    #     save(save_img,flag)
+    #     flag*=-1
+    elif keystroke == ord(FINISH):
+        count=count-1
+        print("action: FINISH ")
+        print("image number: ",count)
+        break
     else:
-        cv2.imwrite('img2.png',save_img[0])
-        cv2.imwrite('img2_depth.png',save_img[2])
-
-
-   
-
-if __name__ == "__main__":
-
-    action = "move_forward"
-    save_img=navigateAndSee(action)
-    flag=1
-    while True:
-        keystroke = cv2.waitKey(0) #等待按鍵事件
-        if keystroke == ord(FORWARD_KEY): #ord()取得char得ASCII
-            action = "move_forward"
-            save_img=navigateAndSee(action)
-            print("action: FORWARD")
-        elif keystroke == ord(LEFT_KEY):
-            action = "turn_left"
-            save_img=navigateAndSee(action)
-            print("action: LEFT")
-        elif keystroke == ord(RIGHT_KEY):
-            action = "turn_right"
-            save_img=navigateAndSee(action)
-            print("action: RIGHT")
-        elif keystroke ==ord(SAVE_FRONT):
-            print("action: SAVE_IMG")
-            save(save_img,flag)
-            flag*=-1
-        elif keystroke == ord(FINISH):
-            print("action: FINISH ",flag)
-            break
-        else:
-            print("INVALID KEY")
-            continue
+        print("INVALID KEY")
+        continue

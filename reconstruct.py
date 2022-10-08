@@ -1,14 +1,11 @@
-from data_collect import *
 import open3d as o3d
 import copy
+import os 
+import cv2
+import numpy as np
+# from PIL import Image
 
-print("start")
-final=[]
-target=o3d.geometry.PointCloud()
-source=o3d.geometry.PointCloud()
-all_img=[]
-
-def To3Dcloud(rgb,depth):
+def depth_image_to_point_cloud(rgb,depth):
     height=512
     width=512
     fov=np.pi/2
@@ -18,7 +15,7 @@ def To3Dcloud(rgb,depth):
     color=[]
     for i in range(width):
         for j in range(height):
-            z=depth[i][j]/25.5
+            z=depth[i][j][0]/25.5
             col=rgb[i][j]/255
             point.append([z*(i-256)/f,z*(j-256)/f,z])  
             color.append([col[0],col[1],col[2]])
@@ -75,7 +72,7 @@ def execute_global_registration(source_down, target_down, source_fpfh,
         ], o3d.pipelines.registration.RANSACConvergenceCriteria(100000, 0.999))
     return result
 
-def pcl_merge(source,target):
+def local_icp_algorithm(source,target):
     voxel_size = 0.05  # means 5cm for this dataset
     source, target, source_down, target_down, source_fpfh, target_fpfh = prepare_dataset(voxel_size,source,target)
 
@@ -98,50 +95,63 @@ def pcl_merge(source,target):
 
     return source.transform(result_icp.transformation)
 
+### main code ###
+print("###start reconstructing###")
 
-action = "move_forward"
-img =navigateAndSee(action)
-all_img.append(img)
-while True:
-    keystroke = cv2.waitKey(0) #等待按鍵事件
-    if keystroke == ord(FORWARD_KEY): #ord()取得char得ASCII
-        action = "move_forward"
-        img =navigateAndSee(action)
-        all_img.append(img)
-        print("action: FORWARD")
-    elif keystroke == ord(LEFT_KEY):
-        action = "turn_left"
-        img =navigateAndSee(action)
-        all_img.append(img)
-        print("action: LEFT")
-    elif keystroke == ord(RIGHT_KEY):
-        action = "turn_right"
-        img =navigateAndSee(action)
-        all_img.append(img)
-        print("action: RIGHT")
-    elif keystroke == ord(FINISH):
-        print("action: FINISH ")
-        break
+### 先初始化存放點雲和存照片的變數 ###
+final=[]
+target=o3d.geometry.PointCloud()
+source=o3d.geometry.PointCloud()
+all_img=[]
+
+### 將rgb,depth資料讀入並且存成list ###
+DIR = './reconstuct_data' #要統計的資料夾
+NUMBER_IMG=len([name for name in os.listdir(DIR) if os.path.isfile(os.path.join(DIR, name))])/2
+num_img=1
+use_img=0
+while(NUMBER_IMG>0):
+    if(use_img==0):
+        img0=cv2.imread('./reconstuct_data/'+'rgb_'+str(num_img)+'.png',1)
+        img1=cv2.imread('./reconstuct_data/'+'img1_depth'+str(num_img)+'.png',1)
+        temp=(img0,img1)
+        all_img.append(temp)
+        use_img=use_img+1
+    elif(use_img==2):
+        use_img=0
     else:
-        print("INVALID KEY")
-        continue
-
+        use_img=use_img+1
+    NUMBER_IMG=NUMBER_IMG-1
+    num_img=num_img+1   
 count=len(all_img)
-if(count>2):
+print("Number of img is ",count)
+
+### 若NUMBER_IMG大於兩張,需要做ICP ###
+if(count>=2):
+    ### 將照片轉為點雲，並且合併 ###
+    #先將要作為基準的第一張照片放到final
     count=count-1
     IMG_NUM=0
-    target=To3Dcloud(all_img[IMG_NUM][0],all_img[IMG_NUM][1])
+    target=depth_image_to_point_cloud(all_img[IMG_NUM][0],all_img[IMG_NUM][1])
     IMG_NUM=IMG_NUM+1
     final.append(target)
+    #把轉換過得source放入final且作為下一次的target
+    total=count
     while(count!=0):
         count=count-1
-        
-        source=To3Dcloud(all_img[IMG_NUM][0],all_img[IMG_NUM][1])
+        source=depth_image_to_point_cloud(all_img[IMG_NUM][0],all_img[IMG_NUM][1])
         IMG_NUM=IMG_NUM+1
-        source=pcl_merge(source,target)
+        source=local_icp_algorithm(source,target)
         final.append(source)
         target=source
+        print("finish : ",int(100-count/total*100),"%")
+    print("###reconstructing is done###")
+    o3d.visualization.draw_geometries(final)
+elif(count==1): ### 若NUMBER_IMG 一張,不需要做ICP ###
+    target=depth_image_to_point_cloud(all_img[0][0],all_img[0][1])
+    final.append(target)
+    print("###reconstructing is done###")
+    o3d.visualization.draw_geometries(final)
+else:
+    print("There is not data.")
+    print("###reconstructing is done###")
 
-
-
-o3d.visualization.draw_geometries(final)
