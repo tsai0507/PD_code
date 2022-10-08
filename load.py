@@ -15,10 +15,10 @@ test_scene = "apartment_0/habitat/mesh_semantic.ply"
 sim_settings = {
     "scene": test_scene,  # Scene path
     "default_agent": 0,  # Index of the default agent
-    "sensor_height":0.5 ,  # Height of sensors in meters, relative to the agent1.5 /1:27
+    "sensor_height":1.5 ,  # Height of sensors in meters, relative to the agent1.5 /1:27
     "width": 512,  # Spatial resolution of the observations
     "height": 512,
-    "sensor_pitch": 0,  # sensor pitch (x rotation in rads)(- is down,+is up)
+    "sensor_pitch": -np.pi/4,  # sensor pitch (x rotation in rads)(- is down,+is up)
 }
 
 
@@ -158,33 +158,39 @@ def navigateAndSee(action=""):
         observations = sim.step(action)
         #print("action: ", action)
         cv2.imshow("RGB", transform_rgb_bgr(observations["color_sensor"]))
-        # cv2.imshow("BEV_RGB", transform_rgb_bgr(observations["bev_color_sensor"]))
+        cv2.imshow("BEV_RGB", transform_rgb_bgr(observations["bev_color_sensor"]))
         agent_state = agent.get_state()
         sensor_state = agent_state.sensor_states['color_sensor']
         print("camera pose: x y z rw rx ry rz")
         print(sensor_state.position[0],sensor_state.position[1],sensor_state.position[2],  sensor_state.rotation.w, sensor_state.rotation.x, sensor_state.rotation.y, sensor_state.rotation.z)
-        return transform_rgb_bgr(observations["color_sensor"]) ,transform_rgb_bgr(observations["bev_color_sensor"]) ,transform_depth(observations["depth_sensor"]),transform_depth(observations["depth_sensor_bev"])
+        camera_locate=[sensor_state.position[0],sensor_state.position[1],sensor_state.position[2]]
+        return transform_rgb_bgr(observations["color_sensor"]) ,transform_rgb_bgr(observations["bev_color_sensor"]) ,transform_depth(observations["depth_sensor"]),camera_locate
 
-
-# def save(save_img):
-#     cv2.imwrite('front_view_path.png',save_img[0])
-#     cv2.imwrite('top_view_path.png',save_img[1])
-#     cv2.imwrite('front_view_depth.png',save_img[2])
-#     cv2.imwrite('bev_view_depth.png',save_img[3])
 
 
 def save_reconstruct(save_img,count):
-    print(count)
+    #fornt
     cv2.imwrite('./reconstuct_data/'+'rgb_'+str(count)+'.png',save_img[0])
     cv2.imwrite('./reconstuct_data/'+'img1_depth'+str(count)+'.png',save_img[2])
-    
+    #bev
+    # cv2.imwrite('./reconstuct_data/'+'rgb_'+str(count)+'.png',save_img[1])
+    # cv2.imwrite('./reconstuct_data/'+'img1_depth'+str(count)+'.png',save_img[3])
 
-  
-count=1
+def save_camera_locate(locat):
+    f.write(str(locat[0])+'\n')
+    f.write(str(locat[1])+'\n')
+    f.write(str(locat[2])+'\n')
+
+path = './reconstuct_data/camera_path.txt'   
+f = open(path, 'w')  
+count=1 #幫照片編號
 action = "move_forward"
 save_img=navigateAndSee(action)
 save_reconstruct(save_img,count)
 count=count+1
+save_camera_locate(save_img[3])
+
+
 while True:
     keystroke = cv2.waitKey(0) #等待按鍵事件
     if keystroke == ord(FORWARD_KEY): #ord()取得char得ASCII
@@ -192,28 +198,32 @@ while True:
         save_img=navigateAndSee(action)
         save_reconstruct(save_img,count)
         count=count+1
+        save_camera_locate(save_img[3])      
         print("action: FORWARD")
+
     elif keystroke == ord(LEFT_KEY):
         action = "turn_left"
         save_img=navigateAndSee(action)
-        save_reconstruct(save_img,count)
+        save_reconstruct(save_img,count) 
         count=count+1
+        save_camera_locate(save_img[3])     
         print("action: LEFT")
+        
     elif keystroke == ord(RIGHT_KEY):
         action = "turn_right"
         save_img=navigateAndSee(action)
-        save_reconstruct(save_img,count)
-        count=count+1
+        save_reconstruct(save_img,count) 
+        count=count+1  
+        save_camera_locate(save_img[3])     
         print("action: RIGHT")
-    # elif keystroke ==ord(SAVE_FRONT):
-    #     print("action: SAVE_IMG")
-    #     save(save_img,flag)
-    #     flag*=-1
+
     elif keystroke == ord(FINISH):
         count=count-1
         print("action: FINISH ")
         print("image number: ",count)
+        f.close()
         break
+
     else:
         print("INVALID KEY")
         continue

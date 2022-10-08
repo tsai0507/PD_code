@@ -25,6 +25,39 @@ def depth_image_to_point_cloud(rgb,depth):
     pcl.estimate_normals()
 
     return  pcl
+def get_grd_point_set():
+    path = './reconstuct_data/camera_path.txt'
+    f = open(path, 'r')
+    flag=1
+    k=[]
+    count=0
+    for line in f.readlines():
+        if(flag==1):
+            k.append([])
+        if(flag<=2):
+            line=line.strip("\n")
+            a=float(line)
+            (k[count]).append(a)
+            flag=1+flag
+        elif(flag==3):
+            flag=1
+            line=line.strip("\n")
+            a=float(line)
+            (k[count]).append(a)
+            count=count+1
+    f.close()
+    x=k[0][0]
+    y=k[0][1]
+    z=k[0][2]
+    # print(z)
+    for i in range(len(k)):
+        a=(k[i][0]-x)
+        b=(k[i][1]-y)
+        c=(k[i][2]-z)
+        k[i][0]=b
+        k[i][1]=-c
+        k[i][2]=a
+    return k
 
 def assemble_estimate_path(estimate_path_points,estimate_path_lines,trans):
     point=[0,0,0,1]
@@ -32,7 +65,7 @@ def assemble_estimate_path(estimate_path_points,estimate_path_lines,trans):
     point=point[:-1]
     point_ptr=len(estimate_path_points)-1
     estimate_path_points.append(point)
-    if (point_ptr>0):
+    if (point_ptr>=0):
         temp=[int(point_ptr),int(point_ptr+1)]
         estimate_path_lines.append(temp)
 
@@ -40,6 +73,7 @@ def estimate_path(estimate_path_points,estimate_path_lines):
     colors = [[1, 0, 0] for i in range(len(estimate_path_lines))]
     line_set = o3d.geometry.LineSet()
     line_set.points = o3d.utility.Vector3dVector(estimate_path_points)
+    # print(estimate_path_points)
     line_set.lines = o3d.utility.Vector2iVector(estimate_path_lines)
     line_set.colors = o3d.utility.Vector3dVector(colors)
     return line_set 
@@ -123,10 +157,14 @@ target=o3d.geometry.PointCloud()
 source=o3d.geometry.PointCloud()
 line_set=o3d.geometry.PointCloud()
 all_img=[]
+#得到所有照片的grd資料
+grd_point_set=get_grd_point_set()
+grd_point_use=[]
+grd_path_use=[]
+grd_line_set = o3d.geometry.LineSet()
 #用來estimate_path
 estimate_path_lines=[]
 estimate_path_points=[]
-
 ### 將rgb,depth資料讀入並且存成list ###
 DIR = './reconstuct_data' #要統計的資料夾
 NUMBER_IMG=len([name for name in os.listdir(DIR) if os.path.isfile(os.path.join(DIR, name))])/2
@@ -138,6 +176,7 @@ while(NUMBER_IMG>0):
         img1=cv2.imread('./reconstuct_data/'+'img1_depth'+str(num_img)+'.png',1)
         temp=(img0,img1)
         all_img.append(temp)
+        grd_point_use.append(grd_point_set[num_img-1])
         use_img=use_img+1
     elif(use_img==3):
         use_img=0
@@ -147,6 +186,18 @@ while(NUMBER_IMG>0):
     num_img=num_img+1   
 count=len(all_img)
 print("Number of img is ",count)
+### 做出grd_path ###
+for i in range(len(grd_point_use)-1):
+    grd_path_use.append([i,i+1])
+
+colors = [[0, 0, 0] for i in range(len(grd_point_use))]
+a_line_set = o3d.geometry.LineSet()
+a_line_set.points = o3d.utility.Vector3dVector(grd_point_use)
+# print(grd_point_set)
+a_line_set.colors = o3d.utility.Vector3dVector(colors)
+a_line_set.lines = o3d.utility.Vector2iVector(grd_path_use)
+grd_line_set=a_line_set
+
 
 ### 若NUMBER_IMG大於兩張,需要做ICP ###
 if(count>=2):
@@ -174,8 +225,9 @@ if(count>=2):
         print("finish : ",int(100-count/total*100),"%")
     
     print("###reconstructing is done###")
-    line_set=estimate_path(estimate_path_points,estimate_path_lines)
-    final.append(line_set)
+    estimate_line_set=estimate_path(estimate_path_points,estimate_path_lines)
+    final.append(estimate_line_set)
+    final.append(grd_line_set)
     #存pcd資料
     # for point_id in range(len(final)):
     #     pcd_final += final[point_id]
