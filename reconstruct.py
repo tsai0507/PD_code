@@ -26,6 +26,24 @@ def depth_image_to_point_cloud(rgb,depth):
 
     return  pcl
 
+def assemble_estimate_path(estimate_path_points,estimate_path_lines,trans):
+    point=[0,0,0,1]
+    point=trans@point
+    point=point[:-1]
+    point_ptr=len(estimate_path_points)-1
+    estimate_path_points.append(point)
+    if (point_ptr>0):
+        temp=[int(point_ptr),int(point_ptr+1)]
+        estimate_path_lines.append(temp)
+
+def estimate_path(estimate_path_points,estimate_path_lines):
+    colors = [[1, 0, 0] for i in range(len(estimate_path_lines))]
+    line_set = o3d.geometry.LineSet()
+    line_set.points = o3d.utility.Vector3dVector(estimate_path_points)
+    line_set.lines = o3d.utility.Vector2iVector(estimate_path_lines)
+    line_set.colors = o3d.utility.Vector3dVector(colors)
+    return line_set 
+
 def preprocess_point_cloud(pcd, voxel_size):
    
     pcd_down = pcd.voxel_down_sample(voxel_size)
@@ -93,16 +111,21 @@ def local_icp_algorithm(source,target):
                                                 voxel_size)
     result_icp = refine_registration(source, target, source_fpfh, target_fpfh,voxel_size,result_ransac)
 
-    return source.transform(result_icp.transformation)
+    return source_down.transform(result_icp.transformation),result_icp.transformation
 
 ### main code ###
 print("###start reconstructing###")
 
 ### 先初始化存放點雲和存照片的變數 ###
 final=[]
+pcd_final=o3d.geometry.PointCloud()
 target=o3d.geometry.PointCloud()
 source=o3d.geometry.PointCloud()
+line_set=o3d.geometry.PointCloud()
 all_img=[]
+#用來estimate_path
+estimate_path_lines=[]
+estimate_path_points=[]
 
 ### 將rgb,depth資料讀入並且存成list ###
 DIR = './reconstuct_data' #要統計的資料夾
@@ -116,7 +139,7 @@ while(NUMBER_IMG>0):
         temp=(img0,img1)
         all_img.append(temp)
         use_img=use_img+1
-    elif(use_img==2):
+    elif(use_img==3):
         use_img=0
     else:
         use_img=use_img+1
@@ -128,24 +151,39 @@ print("Number of img is ",count)
 ### 若NUMBER_IMG大於兩張,需要做ICP ###
 if(count>=2):
     ### 將照片轉為點雲，並且合併 ###
+
     #先將要作為基準的第一張照片放到final
     count=count-1
     IMG_NUM=0
     target=depth_image_to_point_cloud(all_img[IMG_NUM][0],all_img[IMG_NUM][1])
     IMG_NUM=IMG_NUM+1
     final.append(target)
+    SOUR_to_TAR_trsform=np.eye(4)
+    assemble_estimate_path(estimate_path_points,estimate_path_lines,SOUR_to_TAR_trsform)
+   
     #把轉換過得source放入final且作為下一次的target
     total=count
     while(count!=0):
         count=count-1
         source=depth_image_to_point_cloud(all_img[IMG_NUM][0],all_img[IMG_NUM][1])
         IMG_NUM=IMG_NUM+1
-        source=local_icp_algorithm(source,target)
+        source, SOUR_to_TAR_trsform =local_icp_algorithm(source,target)
+        assemble_estimate_path(estimate_path_points,estimate_path_lines,SOUR_to_TAR_trsform)
         final.append(source)
         target=source
         print("finish : ",int(100-count/total*100),"%")
+    
     print("###reconstructing is done###")
+    line_set=estimate_path(estimate_path_points,estimate_path_lines)
+    final.append(line_set)
+    #存pcd資料
+    # for point_id in range(len(final)):
+    #     pcd_final += final[point_id]
+    # pcd_final_down = pcd_final.voxel_down_sample(voxel_size=0.05)
+    # o3d.io.write_point_cloud("multiway_registration.pcd", pcd_final_down)
+    #顯示結果
     o3d.visualization.draw_geometries(final)
+
 elif(count==1): ### 若NUMBER_IMG 一張,不需要做ICP ###
     target=depth_image_to_point_cloud(all_img[0][0],all_img[0][1])
     final.append(target)
