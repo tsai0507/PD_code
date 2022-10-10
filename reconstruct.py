@@ -3,7 +3,7 @@ import copy
 import os 
 import cv2
 import numpy as np
-# from PIL import Image
+import math
 
 def depth_image_to_point_cloud(rgb,depth):
     height=512
@@ -16,9 +16,12 @@ def depth_image_to_point_cloud(rgb,depth):
     for i in range(width):
         for j in range(height):
             z=depth[i][j][0]/25.5
+
             col=rgb[i][j]/255
-            point.append([z*(i-256)/f,z*(j-256)/f,z])  
-            color.append([col[0],col[1],col[2]])
+            
+            if (z*(i-256)/f) >(-0.5):
+                point.append([z*(j-256)/f,z*(i-256)/f,z])  
+                color.append([col[0],col[1],col[2]])
     pcl = o3d.geometry.PointCloud()
     pcl.points = o3d.utility.Vector3dVector(point)
     pcl.colors = o3d.utility.Vector3dVector(color)
@@ -54,10 +57,25 @@ def get_grd_point_set():
         a=(k[i][0]-x)
         b=(k[i][1]-y)
         c=(k[i][2]-z)
-        k[i][0]=b
-        k[i][1]=-c
-        k[i][2]=a
+        # a=(k[i][0])
+        # b=(k[i][1])
+        # c=(k[i][2])
+        k[i][0]=a
+        k[i][1]=b
+        k[i][2]=-c
     return k
+def output_trajectory_mean_data(estimate_path_points,grd_point_use):
+    k=0
+    for i in range(len(estimate_path_points)):
+        x=estimate_path_points[i][0]-grd_point_use[i][0]
+        y=estimate_path_points[i][1]-grd_point_use[i][1]
+        z=estimate_path_points[i][2]-grd_point_use[i][2]
+        temp=math.sqrt(x*x+y*y+z*z)
+        k=k+temp
+    k=k/len(estimate_path_points)
+    print("Mean distance between estimated camera poses and groundtruth camera poses :",k*100,"(m)")
+
+
 
 def assemble_estimate_path(estimate_path_points,estimate_path_lines,trans):
     point=[0,0,0,1]
@@ -127,23 +145,10 @@ def execute_global_registration(source_down, target_down, source_fpfh,
 def local_icp_algorithm(source,target):
     voxel_size = 0.05  # means 5cm for this dataset
     source, target, source_down, target_down, source_fpfh, target_fpfh = prepare_dataset(voxel_size,source,target)
-
-    distance_threshold = voxel_size * 1.5
-    result = o3d.pipelines.registration.registration_ransac_based_on_feature_matching(
-        source_down, target_down, source_fpfh, target_fpfh, True,
-        distance_threshold,
-        o3d.pipelines.registration.TransformationEstimationPointToPoint(False),
-        3, [
-            o3d.pipelines.registration.CorrespondenceCheckerBasedOnEdgeLength(
-                0.9),
-            o3d.pipelines.registration.CorrespondenceCheckerBasedOnDistance(
-                distance_threshold)
-        ], o3d.pipelines.registration.RANSACConvergenceCriteria(100000, 0.999))
-    
     result_ransac = execute_global_registration(source_down, target_down,
                                                 source_fpfh, target_fpfh,
                                                 voxel_size)
-    result_icp = refine_registration(source, target, source_fpfh, target_fpfh,voxel_size,result_ransac)
+    result_icp = refine_registration(source_down, target_down, source_fpfh, target_fpfh,voxel_size,result_ransac)
 
     return source_down.transform(result_icp.transformation),result_icp.transformation
 
@@ -158,7 +163,6 @@ source=o3d.geometry.PointCloud()
 line_set=o3d.geometry.PointCloud()
 all_img=[]
 #得到所有照片的grd資料
-grd_point_set=get_grd_point_set()
 grd_point_use=[]
 grd_path_use=[]
 grd_line_set = o3d.geometry.LineSet()
@@ -167,7 +171,9 @@ estimate_path_lines=[]
 estimate_path_points=[]
 ### 將rgb,depth資料讀入並且存成list ###
 DIR = './reconstuct_data' #要統計的資料夾
-NUMBER_IMG=len([name for name in os.listdir(DIR) if os.path.isfile(os.path.join(DIR, name))])/2
+NUMBER_IMG=int(len([name for name in os.listdir(DIR) if os.path.isfile(os.path.join(DIR, name))])/2)
+if(NUMBER_IMG!=0):
+    grd_point_set=get_grd_point_set()
 num_img=1
 use_img=0
 while(NUMBER_IMG>0):
@@ -178,7 +184,7 @@ while(NUMBER_IMG>0):
         all_img.append(temp)
         grd_point_use.append(grd_point_set[num_img-1])
         use_img=use_img+1
-    elif(use_img==3):
+    elif(use_img==1):
         use_img=0
     else:
         use_img=use_img+1
@@ -223,9 +229,10 @@ if(count>=2):
         final.append(source)
         target=source
         print("finish : ",int(100-count/total*100),"%")
-    
+    output_trajectory_mean_data(estimate_path_points,grd_point_use)
     print("###reconstructing is done###")
-    estimate_line_set=estimate_path(estimate_path_points,estimate_path_lines)
+    print("total size :",total)
+    estimate_line_set=estimate_path(estimate_path_points,estimate_path_lines,)
     final.append(estimate_line_set)
     final.append(grd_line_set)
     #存pcd資料

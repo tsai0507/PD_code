@@ -18,7 +18,7 @@ sim_settings = {
     "sensor_height":1.5 ,  # Height of sensors in meters, relative to the agent1.5 /1:27
     "width": 512,  # Spatial resolution of the observations
     "height": 512,
-    "sensor_pitch": -np.pi/4,  # sensor pitch (x rotation in rads)(- is down,+is up)
+    "sensor_pitch": 0,  # sensor pitch (x rotation in rads)(- is down,+is up)
 }
 
 
@@ -142,7 +142,7 @@ print("Discrete action space: ", action_names)
 FORWARD_KEY="w"
 LEFT_KEY="a"
 RIGHT_KEY="d"
-# SAVE_RECONSTRUCT="z"
+SAVE_IMG="z"
 FINISH="f"
 print("#############################")
 print("use keyboard to control the agent")
@@ -166,15 +166,21 @@ def navigateAndSee(action=""):
         camera_locate=[sensor_state.position[0],sensor_state.position[1],sensor_state.position[2]]
         return transform_rgb_bgr(observations["color_sensor"]) ,transform_rgb_bgr(observations["bev_color_sensor"]) ,transform_depth(observations["depth_sensor"]),camera_locate
 
-
-
-def save_reconstruct(save_img,count):
-    #fornt
-    cv2.imwrite('./reconstuct_data/'+'rgb_'+str(count)+'.png',save_img[0])
-    cv2.imwrite('./reconstuct_data/'+'img1_depth'+str(count)+'.png',save_img[2])
+def save_image_(save_img):
     #bev
     # cv2.imwrite('./reconstuct_data/'+'rgb_'+str(count)+'.png',save_img[1])
     # cv2.imwrite('./reconstuct_data/'+'img1_depth'+str(count)+'.png',save_img[3])
+    #fornt
+    cv2.imwrite('./bev_data/'+'rgb_'+str(count)+'.png',save_img[0])
+    cv2.imwrite('./bev_data/'+'img1_depth'+str(count)+'.png',save_img[2])
+
+
+def save_reconstruct(save_img,count):
+    # a=1
+    #fornt
+    cv2.imwrite('./reconstuct_data/'+'rgb_'+str(count)+'.png',save_img[0])
+    cv2.imwrite('./reconstuct_data/'+'img1_depth'+str(count)+'.png',save_img[2])
+    
 
 def save_camera_locate(locat):
     f.write(str(locat[0])+'\n')
@@ -216,6 +222,11 @@ while True:
         count=count+1  
         save_camera_locate(save_img[3])     
         print("action: RIGHT")
+    
+    elif keystroke == ord(SAVE_IMG):
+        count=count+1  
+        save_image_(save_img)
+        print("action: SAVE_IMG")
 
     elif keystroke == ord(FINISH):
         count=count-1
