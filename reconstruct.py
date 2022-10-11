@@ -17,10 +17,11 @@ def depth_image_to_point_cloud(rgb,depth):
     for i in range(width):
         for j in range(height):
             z=depth[i][j][0]/25.5
-            col=rgb[i][j]/255
+            # col=rgb[i][j]/255
+            col=rgb[i][j]
             if (z*(i-256)/f) >(-0.5):
                 point.append([z*(j-256)/f,z*(i-256)/f,z])  
-                color.append([col[0],col[1],col[2]])
+                color.append([col[2]/255,col[1]/255,col[0]/255])
     pcl = o3d.geometry.PointCloud()
     pcl.points = o3d.utility.Vector3dVector(point)
     pcl.colors = o3d.utility.Vector3dVector(color)
@@ -73,7 +74,7 @@ def output_trajectory_mean_data(estimate_path_points,grd_point_use):
         temp=math.sqrt(x*x+y*y+z*z)
         k=k+temp
     k=k/len(estimate_path_points)
-    print("Mean distance between estimated camera poses and groundtruth camera poses :",k*100,"(m)")
+    print("Mean distance between estimated camera poses and groundtruth camera poses :",k,"(m)")
 
 
 ### 蒐集每一張照片座標資料 並且做成點雲輸出 ###
@@ -177,11 +178,11 @@ while(NUMBER_IMG>0):
         all_img.append(temp)
         grd_point_use.append(grd_point_set[num_img-1]) #抓取所需的ground truth點資料
     ## 不用跑太多張照片,兩張建一次 ##
-    #     use_img=use_img+1      
-    # elif(use_img==1):
-    #     use_img=0
-    # else:
-    #     use_img=use_img+1
+        use_img=use_img+1      
+    elif(use_img==1):
+        use_img=0
+    else:
+        use_img=use_img+1
     NUMBER_IMG=NUMBER_IMG-1
     num_img=num_img+1   
 count=len(all_img)

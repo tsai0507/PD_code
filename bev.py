@@ -50,7 +50,7 @@ class Projection(object):
         #trans 3D_forn to 2D_image
         new_pixels=[]
         for no in cor_bev:
-            new_pixels.append([int(-f*no[0]/no[2]+256),int(f*no[1]/no[2]+256)]) #CORBEV 4x4
+            new_pixels.append([int(-f*no[0]/no[2]+256),int(f*no[1]/no[2]+256)]) 
         # print(new_pixels)
         return new_pixels
 
