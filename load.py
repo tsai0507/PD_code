@@ -5,7 +5,7 @@ import habitat_sim
 from habitat_sim.utils.common import d3_40_colors_rgb
 import cv2
 
-#gitflag1
+
 # This is the scene we are going to load.
 # support a variety of mesh formats, such as .glb, .gltf, .obj, .ply
 ### put your scene path ###
@@ -90,19 +90,6 @@ def make_simple_cfg(settings):
     ]
     depth_sensor_spec.sensor_subtype = habitat_sim.SensorSubType.PINHOLE
 
-    #depth snesor bev
-    depth_sensor_bev = habitat_sim.CameraSensorSpec()
-    depth_sensor_bev.uuid = "depth_sensor_bev"
-    depth_sensor_bev.sensor_type = habitat_sim.SensorType.DEPTH
-    depth_sensor_bev.resolution = [settings["height"], settings["width"]]
-    depth_sensor_bev.position = [0.0, settings["sensor_height"], -1.5]
-    depth_sensor_bev.orientation = [
-        -np.pi/2,
-        0.0,
-        0.0,
-    ]
-    depth_sensor_bev.sensor_subtype = habitat_sim.SensorSubType.PINHOLE
-
     #semantic snesor
     semantic_sensor_spec = habitat_sim.CameraSensorSpec()
     semantic_sensor_spec.uuid = "semantic_sensor"
@@ -116,7 +103,7 @@ def make_simple_cfg(settings):
     ]
     semantic_sensor_spec.sensor_subtype = habitat_sim.SensorSubType.PINHOLE
 
-    agent_cfg.sensor_specifications = [rgb_sensor_spec,bev_rgb_sensor_spec, depth_sensor_spec,depth_sensor_bev, semantic_sensor_spec]
+    agent_cfg.sensor_specifications = [rgb_sensor_spec,bev_rgb_sensor_spec, depth_sensor_spec, semantic_sensor_spec]
 
     return habitat_sim.Configuration(sim_cfg, [agent_cfg])
 
@@ -142,7 +129,7 @@ print("Discrete action space: ", action_names)
 FORWARD_KEY="w"
 LEFT_KEY="a"
 RIGHT_KEY="d"
-SAVE_IMG="z"
+SAVE_BEV_IMG="z"
 FINISH="f"
 print("#############################")
 print("use keyboard to control the agent")
@@ -164,77 +151,71 @@ def navigateAndSee(action=""):
         print("camera pose: x y z rw rx ry rz")
         print(sensor_state.position[0],sensor_state.position[1],sensor_state.position[2],  sensor_state.rotation.w, sensor_state.rotation.x, sensor_state.rotation.y, sensor_state.rotation.z)
         camera_locate=[sensor_state.position[0],sensor_state.position[1],sensor_state.position[2]]
+
+        #回傳front_rgb,bev_rgb,front_depth,座標
         return transform_rgb_bgr(observations["color_sensor"]) ,transform_rgb_bgr(observations["bev_color_sensor"]) ,transform_depth(observations["depth_sensor"]),camera_locate
 
-def save_image_(save_img):
-    #bev
-    # cv2.imwrite('./reconstuct_data/'+'rgb_'+str(count)+'.png',save_img[1])
-    # cv2.imwrite('./reconstuct_data/'+'img1_depth'+str(count)+'.png',save_img[3])
-    #fornt
-    cv2.imwrite('./bev_data/'+'rgb_'+str(count)+'.png',save_img[0])
-    cv2.imwrite('./bev_data/'+'img1_depth'+str(count)+'.png',save_img[2])
+#用來單次儲存BEV_project所需的兩張照片(front_rgb,bev_rgb)
+def bev_save_image(save_img):
+    cv2.imwrite('front_view_path.png',save_img[0])
+    cv2.imwrite('top_view_path.png',save_img[1])
 
-
+#相機座標每移動一次就將存下front_rgb,depth_rgb,讓reconstruct來重建模型
 def save_reconstruct(save_img,count):
-    # a=1
-    #fornt
+    #用count來命名照片,才能有多張照片資料
     cv2.imwrite('./reconstuct_data/'+'rgb_'+str(count)+'.png',save_img[0])
     cv2.imwrite('./reconstuct_data/'+'img1_depth'+str(count)+'.png',save_img[2])
-    
 
+#因為在reconstruct需要有ground truth路線,我們把每次相機座標存到camera_path.txt
 def save_camera_locate(locat):
     f.write(str(locat[0])+'\n')
     f.write(str(locat[1])+'\n')
     f.write(str(locat[2])+'\n')
+### 前置作業 ###
+path = './reconstuct_data/camera_path.txt'      #開啟txt檔路徑
+f = open(path, 'w')                          
+count=1                                         #幫照片編號
 
-path = './reconstuct_data/camera_path.txt'   
-f = open(path, 'w')  
-count=1 #幫照片編號
+#進while之前先走一步
+#每走一部都需要：
 action = "move_forward"
-save_img=navigateAndSee(action)
-save_reconstruct(save_img,count)
-count=count+1
-save_camera_locate(save_img[3])
-
+save_img=navigateAndSee(action)                 #回傳照片資料與座標
+save_reconstruct(save_img,count)                #存下reconstruct照片
+count=count+1                                   #更新count
+save_camera_locate(save_img[3])                 #存下座標
 
 while True:
-    keystroke = cv2.waitKey(0) #等待按鍵事件
-    if keystroke == ord(FORWARD_KEY): #ord()取得char得ASCII
+    keystroke = cv2.waitKey(0)                  #等待按鍵事件
+    if keystroke == ord(FORWARD_KEY):           #ord()取得char得ASCII
         action = "move_forward"
-        save_img=navigateAndSee(action)
-        save_reconstruct(save_img,count)
-        count=count+1
-        save_camera_locate(save_img[3])      
+        save_img=navigateAndSee(action)         #回傳照片資料與座標
+        save_reconstruct(save_img,count)        #存下reconstruct照片
+        count=count+1                           #更新count
+        save_camera_locate(save_img[3])         #存下座標
         print("action: FORWARD")
-
     elif keystroke == ord(LEFT_KEY):
         action = "turn_left"
         save_img=navigateAndSee(action)
         save_reconstruct(save_img,count) 
         count=count+1
         save_camera_locate(save_img[3])     
-        print("action: LEFT")
-        
+        print("action: LEFT")     
     elif keystroke == ord(RIGHT_KEY):
         action = "turn_right"
         save_img=navigateAndSee(action)
         save_reconstruct(save_img,count) 
         count=count+1  
         save_camera_locate(save_img[3])     
-        print("action: RIGHT")
-    
-    elif keystroke == ord(SAVE_IMG):
-        count=count+1  
-        save_image_(save_img)
-        print("action: SAVE_IMG")
-
+        print("action: RIGHT")  
+    elif keystroke == ord(SAVE_BEV_IMG): 
+        bev_save_image(save_img)                #存下BEV_projection所需照片
+        print("action: SAVE_BEV_IMG")
     elif keystroke == ord(FINISH):
         count=count-1
         print("action: FINISH ")
-        print("image number: ",count)
-        f.close()
+        print("All image number: ",count)
+        f.close()                               
         break
-
     else:
         print("INVALID KEY")
         continue
